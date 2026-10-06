@@ -58,6 +58,14 @@ textarea::placeholder{color:var(--muted)}
 .progress>i{display:block;height:100%;background:var(--accent)}
 .row{display:flex;gap:10px}
 .row>*{flex:1}
+.cost{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.ai{border-style:dashed;text-align:center}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--border);border-radius:14px;padding:14px 16px}
+.switch input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.switch span{display:flex;flex-direction:column;gap:2px}
+.field{display:flex;flex-direction:column;gap:8px}
+.field .said{font-size:14px;color:var(--muted)}
+.field textarea{min-height:84px}
 @media (prefers-reduced-motion:no-preference){.screen{animation:in .25s ease-out}@keyframes in{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}}
 </style>
 
@@ -69,6 +77,14 @@ textarea::placeholder{color:var(--muted)}
 <script>
 (() => {
 "use strict";
+
+/* ==========================================================================
+   O app funciona inteiro SEM IA: cenas, desafios e perguntas vêm de bancos
+   escritos à mão abaixo, e o DNA assumido é escrito pela própria pessoa.
+   A IA do Claude (capacidade `sample`, que gasta o limite do plano de quem
+   usa) só roda quando ela liga o interruptor em Privacidade, ou num botão
+   marcado "usa seu limite". Nada chama a IA sozinho.
+   ========================================================================== */
 
 /* ---------- Regras de IA (mesmas do backend: backend/src/ai/guardrails.ts) ---------- */
 const GUARDRAILS = `Você é o motor de IA do aplicativo "JÁ É". Regras fixas, válidas em qualquer módulo:
@@ -95,9 +111,93 @@ const QUESTIONS = [
   ["padroesRepetidos","Quais padrões você sente que se repetem na sua vida?",""],
   ["tercaFeiraIdeal","Se sua vida estivesse exatamente como você deseja, como seria uma terça-feira comum?","Onde você acorda, quem está ao seu lado, como passa o dia, como se sente..."],
 ];
+const QLABEL = { rotina:"Rotina", trabalho:"Trabalho", financas:"Finanças", relacionamentos:"Relacionamentos", autoimagem:"Como você se vê", desejaMudar:"O que quer mudar", medos:"Medo", crencasDinheiro:"Sobre dinheiro", crencasAmor:"Sobre amor", crencasSucesso:"Sobre sucesso", reacaoAoErro:"Quando algo dá errado", padroesRepetidos:"Padrão que se repete" };
+/* Campos que a pessoa reescreve como a versão assumida, sem IA. */
+const REWRITE = [
+  ["crencasDinheiro","Sobre dinheiro, a sua versão assumida acredita que..."],
+  ["crencasAmor","Sobre amor, ela acredita que..."],
+  ["crencasSucesso","Sobre sucesso, ela acredita que..."],
+  ["reacaoAoErro","Quando algo dá errado, ela..."],
+  ["medos","Diante desse medo, ela..."],
+];
 const AREAS = [["financeira","Financeira"],["amorosa","Amorosa"],["profissional","Profissional"],["fisica","Física"],["familiar","Familiar"]];
 const CATS = [["acontecimento","Acontecimento"],["desejo","Desejo"],["emocao","Emoção"],["crenca","Crença"],["acao","Ação"],["evidencia","Evidência"],["revisao","Revisão"]];
 const RECAP_HOURS = 4;
+
+/* ---------- Bancos de conteúdo (sem IA) ---------- */
+const SCENES = {
+  financeira: [
+    ["Um cliente gostou do seu trabalho e pergunta quanto você cobra por um projeto maior. Você sabe que o valor justo é mais alto do que costuma pedir.", ["Dizer o valor justo e ficar em silêncio depois","Pedir um dia para mandar a proposta por escrito","Dar o preço de sempre para não perder o cliente"]],
+    ["Chega uma fatura mais alta do que você esperava. Você tem dez minutos livres antes do próximo compromisso.", ["Abrir a fatura e entender cada linha agora","Anotar para olhar com calma à noite","Fechar o app e não pensar nisso hoje"]],
+    ["Uma amiga sugere um jantar caro no fim de semana. Você tinha decidido guardar esse dinheiro.", ["Propor outro lugar e explicar por quê","Dizer que confirma amanhã","Aceitar e se preocupar depois"]],
+    ["Você recebe um valor extra este mês. Ninguém está esperando que você faça nada com ele.", ["Separar uma parte antes de qualquer gasto","Deixar parado até decidir","Usar para aliviar a semana"]],
+    ["No trabalho, abre a chance de pedir um aumento ou renegociar um contrato. A reunião é amanhã.", ["Preparar três resultados concretos e levar um número","Sondar o clima antes de falar em valores","Não tocar no assunto desta vez"]],
+    ["Você vê um curso que pode aumentar sua renda, mas ele custa uma parte da sua reserva.", ["Fazer as contas de retorno antes de decidir","Pedir a opinião de alguém que já fez","Desistir porque parece arriscado"]],
+    ["Alguém te pede dinheiro emprestado. Você gosta da pessoa, mas o valor pesa no seu mês.", ["Dizer um não claro e gentil","Oferecer outro tipo de ajuda","Emprestar e torcer para voltar"]],
+    ["É fim de mês. Você abre a conta e vê exatamente quanto entrou e quanto saiu.", ["Escrever os números e uma decisão para o próximo mês","Só olhar e fechar","Evitar olhar os detalhes"]],
+  ],
+  amorosa: [
+    ["Alguém que você admira puxa conversa depois de um evento. A conversa flui e está acabando.", ["Dizer que gostou e propor se ver de novo","Trocar contato e esperar a outra pessoa","Ir embora sem dizer nada"]],
+    ["A pessoa com quem você está demora a responder uma mensagem importante.", ["Seguir o dia e conversar quando der","Mandar outra mensagem perguntando se está tudo bem","Imaginar o pior e se afastar"]],
+    ["Num jantar, você percebe que está concordando com tudo para agradar.", ["Dizer o que você realmente pensa sobre o assunto","Observar o quanto isso se repete","Continuar concordando para não criar clima"]],
+    ["Uma pessoa do passado reaparece com uma mensagem carinhosa. Você sabe como essa história costuma terminar.", ["Responder com limite claro","Não responder agora e pensar","Voltar a conversar como antes"]],
+    ["O seu par faz um comentário que te incomoda. Ninguém mais percebeu.", ["Falar sobre isso hoje, com calma","Esperar o momento certo esta semana","Engolir e fingir que não foi nada"]],
+    ["É sábado à noite e você está em casa, sozinha, por escolha. Bate a vontade de mandar mensagem para alguém só para não se sentir só.", ["Fazer algo de que você gosta por inteiro","Escrever no diário o que está sentindo","Mandar a mensagem"]],
+    ["Num encontro, a outra pessoa fala muito de si e pouco pergunta sobre você.", ["Trazer você para a conversa com naturalidade","Notar e decidir depois se quer outro encontro","Seguir ouvindo e se apagar"]],
+    ["Você quer algo específico na relação e ainda não pediu.", ["Pedir de forma direta hoje","Escrever como pediria antes de falar","Esperar a outra pessoa adivinhar"]],
+  ],
+  profissional: [
+    ["Numa reunião, surge uma ideia que você já tinha pensado. Ninguém sabe disso ainda.", ["Falar a ideia agora, com seu nome nela","Mandar por escrito depois da reunião","Deixar outra pessoa trazer"]],
+    ["Seu chefe ou cliente pede uma entrega para amanhã que não cabe no seu dia.", ["Negociar o prazo com uma proposta concreta","Perguntar o que é prioridade","Aceitar e virar a noite"]],
+    ["Aparece uma vaga ou projeto que te anima, mas você não cumpre todos os requisitos.", ["Se candidatar hoje mesmo","Conversar com alguém da área antes","Esperar estar mais preparada"]],
+    ["Você recebe uma crítica dura sobre um trabalho seu.", ["Separar o que é útil e ajustar","Pedir exemplos concretos","Se culpar e travar o resto do dia"]],
+    ["Você tem uma manhã livre para trabalhar no projeto que importa para o seu futuro.", ["Começar pela parte mais difícil","Organizar o plano antes de executar","Resolver pendências pequenas primeiro"]],
+    ["Um colega leva o crédito por algo que você fez.", ["Corrigir com calma, na hora ou logo depois","Registrar e falar com a pessoa em particular","Deixar passar"]],
+    ["Te convidam para apresentar seu trabalho para um grupo maior.", ["Aceitar e marcar um ensaio","Pedir mais detalhes antes de responder","Recusar por medo de errar"]],
+    ["Você termina uma entrega importante. Ninguém comenta nada.", ["Contar o resultado para quem precisa saber","Anotar a entrega nas suas evidências","Achar que não foi bom o suficiente"]],
+  ],
+  fisica: [
+    ["O despertador toca no horário que você combinou consigo mesma para se mexer.", ["Levantar e fazer pelo menos dez minutos","Fazer um alongamento curto na cama","Desligar e dormir mais"]],
+    ["No almoço, tem a opção que te faz bem e a que só te dá vontade.", ["Escolher a que te faz bem sem drama","Fazer metade e metade","Ir na vontade e se culpar depois"]],
+    ["Você está cansada no fim do dia. O treino estava marcado.", ["Fazer uma versão curta do treino","Trocar por uma caminhada","Pular e prometer amanhã"]],
+    ["Uma amiga te chama para uma atividade física que você nunca fez.", ["Topar e ir com curiosidade","Perguntar como é antes","Inventar uma desculpa"]],
+    ["Você se olha no espelho e o primeiro pensamento é uma crítica.", ["Trocar por um fato sobre o que seu corpo fez hoje","Notar o pensamento sem brigar com ele","Seguir o dia com a crítica na cabeça"]],
+    ["É meia-noite e você ainda está no celular.", ["Largar o celular agora","Colocar um alarme para dormir em 15 minutos","Continuar rolando a tela"]],
+    ["Você passou a tarde sem beber água e com dor de cabeça.", ["Beber água agora e pausar dois minutos","Anotar para lembrar amanhã","Tomar mais café"]],
+    ["Seu corpo pede descanso, mas sua cabeça diz que descansar é perder tempo.", ["Descansar sem culpa por um tempo definido","Fazer algo leve e prazeroso","Forçar mais uma tarefa"]],
+  ],
+  familiar: [
+    ["Num almoço de família, alguém faz um comentário sobre suas escolhas.", ["Responder com calma e firmeza","Mudar de assunto com leveza","Ficar calada e remoer depois"]],
+    ["Um familiar te pede um favor grande que atrapalha seus planos.", ["Dizer o que você pode e o que não pode","Pedir um tempo para ver sua agenda","Aceitar tudo para evitar conflito"]],
+    ["Faz tempo que você não liga para alguém da família de quem sente falta.", ["Ligar agora, mesmo que rápido","Mandar uma mensagem marcando um horário","Deixar para quando sobrar tempo"]],
+    ["Uma discussão antiga volta à tona em casa.", ["Dizer o que você sente sem acusar","Propor conversar quando os ânimos baixarem","Entrar na briga do jeito de sempre"]],
+    ["Você percebe que está repetindo uma frase que ouvia na infância e que não gosta.", ["Parar e dizer de outro jeito","Anotar no diário para observar","Seguir sem dar importância"]],
+    ["Alguém da família comemora uma conquista. Bate uma comparação com a sua vida.", ["Comemorar de verdade e anotar o que você quer para você","Notar a comparação sem agir nela","Se diminuir em silêncio"]],
+    ["É seu dia de descanso e esperam que você resolva algo da casa.", ["Combinar outro horário e descansar","Fazer uma parte e parar","Abrir mão do descanso"]],
+    ["Você quer criar um costume novo com a sua família.", ["Propor hoje e marcar a primeira vez","Testar a ideia com uma pessoa antes","Achar que ninguém vai topar"]],
+  ],
+};
+const CHALLENGES = {
+  financeira: ["Abra seu extrato e escreva três gastos que a sua versão assumida não faria.","Separe hoje qualquer valor para uma reserva, mesmo pequeno.","Escreva o preço que você cobraria se não tivesse medo e diga em voz alta três vezes.","Cancele uma assinatura que você não usa.","Mande uma proposta ou orçamento que você está adiando.","Anote quanto você ganhou e gastou nesta semana, sem julgamento.","Pesquise uma forma concreta de aumentar sua renda e anote o primeiro passo.","Peça um desconto ou renegocie uma conta."],
+  amorosa: ["Diga a alguém uma coisa que você gosta nessa pessoa, sem esperar nada em troca.","Escreva três coisas que você não aceita mais numa relação.","Faça sozinha um programa que você faria num encontro.","Peça algo que você quer de forma direta.","Responda uma mensagem com o que você realmente pensa.","Escreva como a sua versão assumida se sente num primeiro encontro.","Diga um não que você costuma transformar em sim.","Arrume um canto da casa como se alguém especial fosse chegar."],
+  profissional: ["Mande uma mensagem para alguém da sua área que você admira.","Trabalhe 20 minutos no projeto mais importante antes de abrir o e-mail.","Atualize seu currículo ou portfólio com uma conquista recente.","Fale uma ideia sua numa reunião.","Peça feedback sobre um trabalho seu.","Escreva os três resultados de que você mais se orgulha este ano.","Recuse uma tarefa que não é sua.","Candidate-se a uma vaga, edital ou projeto que te anima."],
+  fisica: ["Caminhe 15 minutos sem celular.","Durma 30 minutos mais cedo uma noite desta semana.","Prepare uma refeição que a sua versão assumida comeria.","Beba dois litros de água num dia e anote como se sentiu.","Faça 10 minutos de alongamento ao acordar.","Marque uma consulta ou exame que você está adiando.","Experimente uma atividade física nova.","Troque uma crítica ao seu corpo por um agradecimento, por escrito."],
+  familiar: ["Ligue para alguém da família só para saber como está.","Diga um não com carinho para um pedido que te sobrecarrega.","Conte para alguém da família uma conquista sua.","Escreva uma frase da infância que você quer parar de repetir e a nova versão.","Proponha um encontro em família do jeito que você gosta.","Agradeça a alguém da família por algo específico.","Defina um horário só seu e avise em casa.","Converse sobre um assunto que você sempre evita, com calma."],
+};
+const QUESTIONS_SELF = [
+  "Se eu já vivesse a realidade que você escolheu, o que eu faria com isso nas próximas 24 horas?",
+  "O que disso é fato e o que é interpretação sua?",
+  "Qual é a menor ação possível hoje que me representaria?",
+  "Que crença antiga está falando agora?",
+  "Se isso der certo, o que muda? Se der errado, o que você aprende?",
+  "Como eu responderia a isso sem pressa e sem medo?",
+  "O que você diria para uma amiga que te contasse isso?",
+  "Do que você precisa agora: descanso, coragem ou clareza?",
+  "Você está esperando permissão de quem?",
+  "Que evidência você já tem de que consegue lidar com isso?",
+  "Daqui a um ano, qual escolha você vai agradecer por ter feito hoje?",
+  "O que você faria se não precisasse da aprovação de ninguém?",
+];
 
 /* ---------- Capacidades do Claude (db + sample), com alternativa local ---------- */
 const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name).catch(() => null) : Promise.resolve(null);
@@ -108,10 +208,7 @@ const Store = {
   async init() {
     const [db, user] = await Promise.all([use("db"), use("user")]);
     const uid = user ? await user.id().catch(() => null) : null;
-    if (db && uid) {
-      this.mode = "db";
-      this.base = db.doc("data/users/" + uid + "/perfil");
-    }
+    if (db && uid) { this.mode = "db"; this.base = db.doc("data/users/" + uid + "/perfil"); }
   },
   lsGet(k, d) { try { const v = localStorage.getItem("jae:" + k); return v ? JSON.parse(v) : d; } catch { return d; } },
   lsSet(k, v) { try { localStorage.setItem("jae:" + k, JSON.stringify(v)); } catch {} },
@@ -119,10 +216,7 @@ const Store = {
     if (this.mode === "db") { const s = await this.base.get(); return s.exists ? s.data() : null; }
     return this.lsGet("perfil", null);
   },
-  async saveProfile(p) {
-    if (this.mode === "db") return this.base.set(p);
-    this.lsSet("perfil", p);
-  },
+  async saveProfile(p) { if (this.mode === "db") return this.base.set(p); this.lsSet("perfil", p); },
   async add(col, data) {
     const row = { ...data, createdAt: new Date().toISOString() };
     if (this.mode === "db") { const ref = await this.base.collection(col).add(row); return { id: ref.id, ...row }; }
@@ -150,11 +244,16 @@ const Store = {
   },
 };
 
+/* IA só quando a pessoa ligou o interruptor e o Claude está disponível nesta tela. */
+const aiOn = () => !!(profile && profile.aiOn && sample);
+const COST = "usa seu limite do Claude";
+
 function aiError(e) {
   const c = e && e.code;
   if (c === "not_granted") return "Você não liberou o uso do Claude nesta página. Recarregue a página e toque em permitir.";
   if (c === "rate_limited") return "Muitos pedidos seguidos. Espere um minuto e tente de novo.";
   if (c === "invalid_json") return "A resposta veio num formato inesperado. Tente de novo.";
+  if (c === "unavailable") return "A IA do Claude não está disponível aqui. Abra o app pelo Claude.";
   if (c === "cancelled") return "";
   return "Não consegui gerar agora. Tente de novo.";
 }
@@ -162,24 +261,22 @@ async function askJSON(task, data) {
   if (!sample) throw { code: "unavailable" };
   return sample.json(GUARDRAILS + "\n\n" + task + "\n\nDados:\n" + JSON.stringify(data, null, 1));
 }
-async function askText(task, data, onText) {
+async function askText(task, data) {
   if (!sample) throw { code: "unavailable" };
-  const r = await sample(GUARDRAILS + "\n\n" + task + "\n\nDados:\n" + JSON.stringify(data, null, 1), { onText, cache: false });
+  const r = await sample(GUARDRAILS + "\n\n" + task + "\n\nDados:\n" + JSON.stringify(data, null, 1), { cache: false });
   return r.text.trim();
 }
 
 /* ---------- Estado ---------- */
 let profile = null;
 const go = (screen, opts) => render(screen, opts);
+const areaLabel = () => (AREAS.find(a => a[0] === profile.reality.area) || [, profile.reality.area])[1];
 
 async function context() {
   const cenas = await Store.list("cenas", 3);
   return {
-    area: profile.reality.area,
-    dna: profile.dna,
-    mundo: profile.reality.world,
-    narrativaRecente: cenas.map(c => c.narrative).reverse(),
-    padroes: (profile.patterns || []).slice(-5),
+    area: profile.reality.area, tercaFeira: profile.reality.terca, dna: profile.dna,
+    narrativaRecente: cenas.map(c => c.narrative).reverse(), padroes: (profile.patterns || []).slice(-5),
   };
 }
 
@@ -189,11 +286,10 @@ function h(tag, props, ...kids) {
   for (const [k, v] of Object.entries(props || {})) {
     if (k === "class") el.className = v;
     else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-    else if (k === "text") el.textContent = v;
     else if (v === true) el.setAttribute(k, "");
     else if (v !== false && v != null) el.setAttribute(k, v);
   }
-  for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(String(k)));
+  for (const k of kids.flat()) if (k != null && k !== false && k !== "") el.append(k.nodeType ? k : document.createTextNode(String(k)));
   return el;
 }
 const view = document.getElementById("view");
@@ -208,6 +304,8 @@ function screen(title, ...kids) {
 }
 const fmtDate = (iso) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 function busy(btn, on, label) { btn.disabled = on; if (label) btn.textContent = label; }
+/* Botão de IA: tracejado e com o aviso de custo embaixo. */
+const aiButton = (label, onclick) => { const b = h("button", { class: "ghost ai", onclick }, label); return [b, h("p", { class: "note cost" }, COST)]; };
 
 /* ---------- Telas ---------- */
 const screens = {
@@ -217,33 +315,55 @@ const screens = {
     const last = state.step === QUESTIONS.length - 1;
     const ta = h("textarea", { id: "q-" + field, placeholder: ph || "Escreva com suas palavras..." });
     ta.value = state.answers[field] || "";
-    const err = h("p", { class: "err" });
-    const next = h("button", { class: "btn", disabled: !ta.value.trim() }, last ? "Concluir" : "Continuar");
+    const next = h("button", { class: "btn", disabled: !ta.value.trim() }, "Continuar");
     ta.oninput = () => { next.disabled = !ta.value.trim(); };
-    next.onclick = async () => {
+    next.onclick = () => {
       state.answers[field] = ta.value.trim();
-      if (!last) return go("onboarding", { step: state.step + 1, answers: state.answers });
-      busy(next, true, "Lendo suas respostas…"); err.textContent = "";
-      try {
-        const dna = await askJSON(`Construa o "DNA Atual" e o "DNA Assumido" a partir das respostas de onboarding.
-DNA Atual: os padrões que a pessoa relatou hoje (rotina, crenças, reação ao erro, medos), sem diagnóstico.
-DNA Assumido: como pensa, decide e age a versão dela que já vive a terça-feira ideal. Ela NÃO carrega as crenças limitantes relatadas; descreva as crenças e atitudes que substituem essas.
-Cada campo com 3 a 5 frases, segunda pessoa ("você"), concreto e pessoal.
-Responda só com JSON: {"atual": "...", "assumido": "..."}`, state.answers);
-        if (!dna || !dna.atual || !dna.assumido) throw { code: "invalid_json" };
-        profile = { answers: state.answers, dna, patterns: [], createdAt: new Date().toISOString() };
-        await Store.saveProfile(profile);
-        go("dna");
-      } catch (e) { err.textContent = aiError(e); busy(next, false, "Concluir"); }
+      go(last ? "rewrite" : "onboarding", last ? { answers: state.answers } : { step: state.step + 1, answers: state.answers });
     };
     screen(null,
       h("div", { class: "stack" }, h("span", { class: "label" }, `${state.step + 1} de ${QUESTIONS.length}`),
         h("div", { class: "progress" }, h("i", { style: `width:${((state.step + 1) / QUESTIONS.length) * 100}%` }))),
-      h("h2", {}, prompt), ta, err, next,
+      h("h2", {}, prompt), ta, next,
       state.step > 0 && h("button", { class: "link", onclick: () => { state.answers[field] = ta.value; go("onboarding", { step: state.step - 1, answers: state.answers }); } }, "Voltar"),
-      state.step === 0 && h("p", { class: "note" }, "13 perguntas. Suas respostas ficam guardadas só pra você e servem para o Claude montar sua leitura."),
+      state.step === 0 && h("p", { class: "note" }, "13 perguntas. Suas respostas ficam guardadas só pra você."),
     );
-    ta.focus();
+  },
+
+  /* DNA assumido escrito pela própria pessoa, sem IA. */
+  rewrite({ answers }) {
+    const fields = REWRITE.map(([k, q]) => {
+      const ta = h("textarea", { id: "rw-" + k, placeholder: "Escreva como ela pensa e age..." });
+      return { k, q, ta, el: h("div", { class: "field" }, h("span", { class: "said" }, `Você disse: ${answers[k]}`), h("p", {}, q), ta) };
+    });
+    const err = h("p", { class: "err" });
+    const done = h("button", { class: "btn", disabled: true }, "Ver meu DNA");
+    const check = () => { done.disabled = fields.some(f => !f.ta.value.trim()); };
+    fields.forEach(f => f.ta.oninput = check);
+    const save = async (dna) => {
+      profile = { answers, dna, patterns: [], aiOn: false, createdAt: new Date().toISOString() };
+      await Store.saveProfile(profile); go("dna");
+    };
+    done.onclick = async () => {
+      busy(done, true);
+      await save({ atual: dnaAtual(answers), assumido: fields.map(f => `${f.q.replace("...", "")} ${f.ta.value.trim()}`).join("\n\n") });
+    };
+    const [aiB, aiNote] = aiButton("Pedir para o Claude escrever por mim", async () => {
+      busy(aiB, true, "Lendo suas respostas…"); err.textContent = "";
+      try {
+        const dna = await askJSON(`Construa o "DNA Atual" e o "DNA Assumido" a partir das respostas de onboarding.
+DNA Atual: os padrões que a pessoa relatou hoje, sem diagnóstico.
+DNA Assumido: como pensa, decide e age a versão dela que já vive a terça-feira ideal. Ela NÃO carrega as crenças limitantes relatadas; descreva as crenças e atitudes que substituem essas.
+Cada campo com 3 a 5 frases, segunda pessoa, concreto e pessoal. Responda só com JSON: {"atual": "...", "assumido": "..."}`, answers);
+        if (!dna || !dna.atual || !dna.assumido) throw { code: "invalid_json" };
+        await save(dna);
+      } catch (e) { err.textContent = aiError(e); busy(aiB, false, "Pedir para o Claude escrever por mim"); }
+    });
+    screen(null,
+      h("h1", {}, "Sua versão assumida"),
+      h("p", { class: "lead" }, "É a versão de você que já vive a sua terça-feira ideal. Reescreva cada crença do jeito que ela pensa. Ninguém conhece isso melhor do que você."),
+      fields.map(f => f.el), err, done,
+      sample && [aiB, aiNote]);
   },
 
   dna() {
@@ -261,7 +381,6 @@ Responda só com JSON: {"atual": "...", "assumido": "..."}`, state.answers);
     const ta = h("textarea", { id: "terca", placeholder: "Onde você acorda, o que faz, como se sente..." });
     ta.value = profile.answers.tercaFeiraIdeal || "";
     const extra = h("div", { class: "stack", hidden: true }, h("span", { class: "label" }, "Já vivendo essa mudança"), h("p", {}, "Como seria uma terça-feira comum, já dentro dessa realidade?"), ta);
-    const err = h("p", { class: "err" });
     const go1 = h("button", { class: "btn", disabled: true }, "Entrar nesta realidade");
     const check = () => { go1.disabled = !area || !ta.value.trim(); };
     ta.oninput = check;
@@ -269,53 +388,45 @@ Responda só com JSON: {"atual": "...", "assumido": "..."}`, state.answers);
       area = id; opts.forEach(o => o.classList.remove("sel")); ev.currentTarget.classList.add("sel"); extra.hidden = false; check();
     } }, label));
     go1.onclick = async () => {
-      busy(go1, true, "Construindo sua realidade…"); err.textContent = "";
-      try {
-        const world = await askJSON(`Construa o "mundo" de uma realidade simulada a partir da área de vida escolhida e da terça-feira ideal da pessoa. Cada campo com 1 a 2 frases concretas.
-Responda só com JSON: {"resumo":"...","ambiente":"...","rotina":"...","profissao":"...","relacoes":"...","lazer":"..."}`, { area, tercaFeiraIdeal: ta.value.trim(), dna: profile.dna });
-        profile.reality = { area, terca: ta.value.trim(), world, createdAt: new Date().toISOString() };
-        await Store.saveProfile(profile);
-        go("home");
-      } catch (e) { err.textContent = aiError(e); busy(go1, false, "Entrar nesta realidade"); }
+      busy(go1, true);
+      profile.reality = { area, terca: ta.value.trim(), createdAt: new Date().toISOString() };
+      await Store.saveProfile(profile); go("home");
     };
     screen(null,
       h("h1", {}, "Uma realidade por vez"),
       h("p", { class: "lead" }, "Se apenas uma área da sua vida mudasse primeiro, qual mudança teria maior impacto sobre todas as outras?"),
-      h("div", { class: "stack" }, opts), extra, err, go1);
+      h("div", { class: "stack" }, opts), extra, go1);
   },
 
   async home() {
-    const areaLabel = (AREAS.find(a => a[0] === profile.reality.area) || [, profile.reality.area])[1];
     const days = Math.max(1, Math.ceil((Date.now() - new Date(profile.reality.createdAt).getTime()) / 86400000));
-    const status = h("p", { class: "status" }, `Dia ${days} na sua realidade ${areaLabel.toLowerCase()}`);
+    const status = h("p", { class: "status" }, `Dia ${days} na sua realidade ${areaLabel().toLowerCase()}`);
     screen(null,
       h("div", { class: "home-hero" },
-        h("h1", {}, "JÁ É"),
-        h("p", { class: "lead" }, "Sua vida está acontecendo."),
-        h("button", { class: "btn", onclick: () => go("reality") }, "ENTRAR"),
-        status),
+        h("h1", {}, "JÁ É"), h("p", { class: "lead" }, "Sua vida está acontecendo."),
+        h("button", { class: "btn", onclick: () => go("reality") }, "ENTRAR"), status),
       h("div", { class: "menu" },
         h("button", { class: "ghost", onclick: () => go("assumed") }, "Eu assumido"),
         h("button", { class: "ghost", onclick: () => go("journal") }, "Diário"),
         h("button", { class: "ghost", onclick: () => go("challenge") }, "Desafio da semana"),
         h("button", { class: "ghost", onclick: () => go("evidence") }, "Evidências"),
         h("button", { class: "ghost wide", onclick: () => go("crisis") }, "Estou duvidando"),
-        h("button", { class: "link wide", onclick: () => go("privacy") }, "Meu DNA e privacidade")),
+        h("button", { class: "link wide", onclick: () => go("privacy") }, "Meu DNA, IA e privacidade")),
       Store.mode === "local" && h("p", { class: "note" }, "Abra este app pelo Claude para seus dados ficarem salvos na sua conta. Aqui eles ficam só neste navegador."),
     );
     try {
       const [des, evs] = await Promise.all([Store.list("desafios", 50), evidenceList()]);
-      const pend = des.find(d => d.status === "pending");
-      status.textContent += ` · ${evs.length} ${evs.length === 1 ? "evidência" : "evidências"}` + (pend ? " · desafio em aberto" : "");
+      status.textContent += ` · ${evs.length} ${evs.length === 1 ? "evidência" : "evidências"}` + (des.find(d => d.status === "pending") ? " · desafio em aberto" : "");
     } catch {}
   },
 
   async reality() {
     const box = h("div", { class: "stack" }, h("p", { class: "thinking" }, "Entrando na sua realidade…"));
     screen("Sua realidade", box);
-    const cenas = await Store.list("cenas", 1);
+    const cenas = await Store.list("cenas", 200);
     const last = cenas[0];
     if (last && !last.chosen) return showScene(box, last);
+    if (!aiOn()) return showScene(box, await Store.add("cenas", { ...bankScene(cenas), chosen: null }));
     try {
       const ctx = await context();
       let scene;
@@ -323,11 +434,8 @@ Responda só com JSON: {"resumo":"...","ambiente":"...","rotina":"...","profissa
         const hours = Math.round((Date.now() - new Date(last.createdAt).getTime()) / 3600000);
         const text = await askText(`Gere 2 a 3 frases descrevendo o que aconteceu na realidade simulada da pessoa enquanto ela esteve fora (${hours} horas), como continuação coerente do mundo dela. Deixe claro que é continuação da simulação, não previsão da vida real. Responda em texto simples, sem título.`, ctx);
         scene = { narrative: text, options: [{ id: "continue", label: "Continuar" }], recap: true };
-      } else {
-        scene = await genScene(ctx);
-      }
-      const saved = await Store.add("cenas", { ...scene, chosen: null });
-      showScene(box, saved);
+      } else scene = await genScene(ctx);
+      showScene(box, await Store.add("cenas", { ...scene, chosen: null }));
     } catch (e) { box.replaceChildren(h("p", { class: "err" }, aiError(e)), h("button", { class: "btn", onclick: () => go("reality") }, "Tentar de novo")); }
   },
 
@@ -339,7 +447,8 @@ Responda só com JSON: {"resumo":"...","ambiente":"...","rotina":"...","profissa
     ta.oninput = () => { send.disabled = !ta.value.trim(); };
     screen("Eu assumido",
       h("p", { class: "label" }, "Representação da identidade que você está construindo"),
-      log, ta, err, send);
+      log, ta, err, send,
+      h("p", { class: "note" }, aiOn() ? `Com a IA ligada, cada resposta ${COST}.` : "Sem IA, o eu assumido te devolve uma pergunta. A resposta é sua, de preferência em ação."));
     const msgs = (await Store.list("conversa", 40)).reverse();
     const bubble = (role, text) => h("div", { class: "bubble " + (role === "user" ? "me" : "them") }, text);
     if (!msgs.length) log.append(h("p", { class: "lead" }, "Conte o que está acontecendo, uma dúvida ou uma decisão. Quem responde é a versão de você que já vive a sua realidade."));
@@ -350,14 +459,21 @@ Responda só com JSON: {"resumo":"...","ambiente":"...","rotina":"...","profissa
       log.append(bubble("user", text)); ta.value = ""; busy(send, true, "Respondendo…"); err.textContent = "";
       const out = bubble("assistant", "…"); out.classList.add("thinking"); log.append(out);
       try {
-        const ctx = await context();
-        const rules = GUARDRAILS + `\n\nVocê é o "Eu Assumido": a representação da identidade que a pessoa está construindo. Responda em 2 a 4 frases, em primeira pessoa, com calor e firmeza, sem positividade tóxica, levando de volta para uma ação real quando fizer sentido. Nunca alegue conhecer o futuro real dela.\n\nContexto da pessoa:\n` + JSON.stringify(ctx);
-        const turns = msgs.slice(-16).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
-        const r = await sample([{ role: "user", content: rules }, ...turns, { role: "user", content: text }],
-          { cache: false, onText: ({ text: t }) => { out.classList.remove("thinking"); out.textContent = t; } });
-        out.textContent = r.text.trim();
+        let reply;
+        if (aiOn()) {
+          const ctx = await context();
+          const rules = GUARDRAILS + `\n\nVocê é o "Eu Assumido": a representação da identidade que a pessoa está construindo. Responda em 2 a 4 frases, em primeira pessoa, com calor e firmeza, sem positividade tóxica, levando de volta para uma ação real quando fizer sentido. Nunca alegue conhecer o futuro real dela.\n\nContexto da pessoa:\n` + JSON.stringify(ctx);
+          const turns = msgs.slice(-16).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+          const r = await sample([{ role: "user", content: rules }, ...turns, { role: "user", content: text }],
+            { cache: false, onText: ({ text: t }) => { out.classList.remove("thinking"); out.textContent = t; } });
+          reply = r.text.trim();
+        } else {
+          const asked = msgs.filter(m => m.role !== "user").length;
+          reply = QUESTIONS_SELF[asked % QUESTIONS_SELF.length];
+        }
+        out.classList.remove("thinking"); out.textContent = reply;
         msgs.push(await Store.add("conversa", { role: "user", content: text }));
-        msgs.push(await Store.add("conversa", { role: "assistant", content: r.text.trim() }));
+        msgs.push(await Store.add("conversa", { role: "assistant", content: reply }));
       } catch (e) { out.remove(); ta.value = text; err.textContent = aiError(e); }
       busy(send, !ta.value.trim(), "Enviar");
     };
@@ -372,27 +488,30 @@ Responda só com JSON: {"resumo":"...","ambiente":"...","rotina":"...","profissa
     const err = h("p", { class: "err" });
     ta.oninput = () => { save.disabled = !ta.value.trim(); };
     const chips = CATS.map(([id, label]) => h("button", { class: "chip" + (id === cat ? " sel" : ""), onclick: (ev) => { cat = id; chips.forEach(c => c.classList.remove("sel")); ev.currentTarget.classList.add("sel"); } }, label));
+    let rows = [];
     const draw = async () => {
-      const rows = await Store.list("diario", 100);
+      rows = await Store.list("diario", 100);
       list.replaceChildren(...(rows.length ? rows.map(r => h("div", { class: "entry" }, h("span", { class: "meta" }, `${(CATS.find(c => c[0] === r.category) || [, r.category])[1]} · ${fmtDate(r.createdAt)}`), h("p", {}, r.content))) : [h("p", { class: "lead" }, "Nenhum registro ainda.")]));
       const p = profile.patterns || [];
-      pats.replaceChildren(...(p.length ? [h("span", { class: "label" }, "Padrões que apareceram"), ...p.slice(-3).map(t => h("div", { class: "card" }, t))] : []));
-      return rows;
+      const kids = p.length ? [h("span", { class: "label" }, "Padrões que apareceram"), ...p.slice(-3).map(t => h("div", { class: "card" }, t))] : [];
+      if (aiOn() && rows.length >= 3) {
+        const [b, n] = aiButton("Procurar padrões nos meus registros", async () => {
+          busy(b, true, "Lendo seus registros…");
+          try {
+            const r = await askJSON(`Analise estes registros de diário e aponte até 3 padrões de linguagem ou comportamento recorrentes, citando trechos curtos como evidência. Nunca use linguagem de diagnóstico.
+Responda só com JSON: {"patterns": ["...", "..."]}`, rows.slice(0, 10).map(r => r.content).reverse());
+            if (Array.isArray(r.patterns) && r.patterns.length) { profile.patterns = [...(profile.patterns || []), ...r.patterns.map(String)].slice(-10); await Store.saveProfile(profile); }
+            await draw();
+          } catch (e) { err.textContent = aiError(e); busy(b, false, "Procurar padrões nos meus registros"); }
+        });
+        kids.push(b, n);
+      }
+      pats.replaceChildren(...kids);
     };
     save.onclick = async () => {
       busy(save, true, "Registrando…"); err.textContent = "";
-      try {
-        await Store.add("diario", { category: cat, content: ta.value.trim() });
-        ta.value = "";
-        const rows = await draw();
-        if (rows.length % 3 === 0 && sample) {
-          try {
-            const r = await askJSON(`Analise estes registros de diário e aponte até 3 padrões de linguagem ou comportamento recorrentes, citando trechos curtos como evidência. Nunca use linguagem de diagnóstico.
-Responda só com JSON: {"patterns": ["...", "..."]}`, rows.slice(0, 5).map(r => r.content).reverse());
-            if (Array.isArray(r.patterns) && r.patterns.length) { profile.patterns = [...(profile.patterns || []), ...r.patterns].slice(-10); await Store.saveProfile(profile); await draw(); }
-          } catch {}
-        }
-      } catch (e) { err.textContent = "Não consegui salvar. Tente de novo."; }
+      try { await Store.add("diario", { category: cat, content: ta.value.trim() }); ta.value = ""; await draw(); }
+      catch { err.textContent = "Não consegui salvar. Tente de novo."; }
       busy(save, !ta.value.trim(), "Registrar");
     };
     screen("Diário", h("span", { class: "label" }, "Categoria"), h("div", { class: "chips" }, chips), ta, err, save, pats, h("span", { class: "label" }, "Registros"), list);
@@ -413,47 +532,68 @@ Responda só com JSON: {"patterns": ["...", "..."]}`, rows.slice(0, 5).map(r => 
       box.replaceChildren(h("div", { class: "card" }, pend.description), h("span", { class: "label" }, "Como foi"), ta,
         h("button", { class: "btn", onclick: () => close(true) }, "Marquei como feito"),
         h("button", { class: "link", onclick: () => close(false) }, "Não fiz"));
-    } else {
-      const err = h("p", { class: "err" });
-      const gen = h("button", { class: "btn" }, "Gerar desafio desta semana");
-      gen.onclick = async () => {
-        busy(gen, true, "Pensando no desafio…"); err.textContent = "";
-        try {
-          const ctx = await context();
-          const d = await askText(`Gere um Desafio de Identidade semanal: uma ação pequena, concreta e realizável em menos de 20 minutos, que a identidade assumida da pessoa faria na área escolhida, usando detalhes reais do contexto. Responda em uma ou duas frases, texto simples, sem título.`, { ...ctx, desafiosAnteriores: rows.slice(0, 5).map(r => r.description) });
-          await Store.add("desafios", { description: d, status: "pending" });
-          go("challenge");
-        } catch (e) { err.textContent = aiError(e); busy(gen, false, "Gerar desafio desta semana"); }
-      };
-      box.replaceChildren(h("p", { class: "lead" }, "Uma ação pequena por semana, feita no mundo real. Quando você conclui, ela vira evidência."), err, gen);
+      return;
     }
+    const err = h("p", { class: "err" });
+    const gen = h("button", { class: "btn" }, "Ver o desafio desta semana");
+    gen.onclick = async () => {
+      busy(gen, true);
+      const bank = CHALLENGES[profile.reality.area] || CHALLENGES.profissional;
+      const used = new Set(rows.map(r => r.description));
+      const d = bank.find(c => !used.has(c)) || bank[rows.length % bank.length];
+      await Store.add("desafios", { description: d, status: "pending" }); go("challenge");
+    };
+    const ai = aiOn() && aiButton("Pedir um desafio feito para mim", async () => {
+      busy(ai[0], true, "Pensando no desafio…"); err.textContent = "";
+      try {
+        const d = await askText(`Gere um Desafio de Identidade semanal: uma ação pequena, concreta e realizável em menos de 20 minutos, que a identidade assumida da pessoa faria na área escolhida, usando detalhes reais do contexto. Responda em uma ou duas frases, texto simples, sem título.`, { ...(await context()), desafiosAnteriores: rows.slice(0, 5).map(r => r.description) });
+        await Store.add("desafios", { description: d, status: "pending" }); go("challenge");
+      } catch (e) { err.textContent = aiError(e); busy(ai[0], false, "Pedir um desafio feito para mim"); }
+    });
+    box.replaceChildren(h("p", { class: "lead" }, "Uma ação pequena por semana, feita no mundo real. Quando você conclui, ela vira evidência."), err, gen, ai || null);
   },
 
   async evidence() {
     const list = h("div", { class: "stack" }, h("p", { class: "thinking" }, "Carregando…"));
-    screen("Evidências", h("h1", {}, "Banco de evidências"), h("p", { class: "lead" }, "O que mudou desde que você começou. Entram aqui os desafios concluídos e os registros do diário marcados como evidência."), list);
+    screen("Evidências", h("h1", {}, "Banco de evidências"), h("p", { class: "lead" }, "O que mudou desde que você começou. Entram aqui os desafios concluídos, as escolhas da sua versão assumida no modo realidade e os registros do diário marcados como evidência."), list);
     const evs = await evidenceList();
     list.replaceChildren(...(evs.length ? evs.map(e => h("div", { class: "entry" }, h("span", { class: "meta" }, `${e.origin} · ${fmtDate(e.date)}`), h("p", {}, e.text), e.note && h("p", { class: "lead" }, e.note))) : [h("p", { class: "lead" }, "Ainda não há evidências registradas.")]));
   },
 
+  /* Separação guiada: a pessoa preenche cada parte; a IA é opcional. */
   crisis() {
-    const ta = h("textarea", { id: "crise-fato", placeholder: "Descreva o fato, sem interpretação..." });
-    const btn = h("button", { class: "btn", disabled: true }, "Separar");
-    const out = h("div", { class: "stack" });
-    ta.oninput = () => { btn.disabled = !ta.value.trim(); };
-    btn.onclick = async () => {
-      busy(btn, true, "Separando…"); out.replaceChildren();
-      try {
-        const ctx = await context();
-        const fato = ta.value.trim();
-        const r = await askJSON(`Modo Crise: a pessoa relatou um fato que a fez duvidar. Separe de forma estruturada, usando o contexto dela. Sem positividade tóxica. "medo" deve se ligar ao medo que ela relatou, com as palavras dela reinterpretadas, não copiadas. "respostaIdentidadeAssumida" termina com uma ação concreta possível hoje.
-Responda só com JSON: {"interpretacao":"...","medo":"...","padraoAntigo":"...","respostaIdentidadeAssumida":"..."}`, { ...ctx, fato });
-        const part = (label, text) => [h("span", { class: "label" }, label), h("div", { class: "card" }, String(text || ""))];
-        out.replaceChildren(...part("Fato", fato), ...part("Interpretação", r.interpretacao), ...part("Medo", r.medo), ...part("Padrão antigo", r.padraoAntigo), ...part("Resposta da identidade assumida", r.respostaIdentidadeAssumida));
-      } catch (e) { out.replaceChildren(h("p", { class: "err" }, aiError(e))); }
-      busy(btn, !ta.value.trim(), "Separar");
+    const fato = h("textarea", { id: "crise-fato", placeholder: "Descreva o fato, sem interpretação..." });
+    const parts = [
+      ["interpretacao", "Interpretação", "Que significado você está dando a isso?"],
+      ["medo", "Medo", "Do que você tem medo, de verdade?"],
+      ["padraoAntigo", "Padrão antigo", "Isso já aconteceu antes? Como você costuma reagir?"],
+      ["respostaIdentidadeAssumida", "Resposta da identidade assumida", "O que a sua versão assumida faria agora? Uma ação possível hoje."],
+    ].map(([k, label, q]) => { const ta = h("textarea", { id: "crise-" + k, placeholder: q }); return { k, label, ta, el: h("div", { class: "field" }, h("span", { class: "label" }, label), ta) }; });
+    const err = h("p", { class: "err" });
+    const save = h("button", { class: "btn", disabled: true }, "Guardar no diário");
+    const check = () => { save.disabled = !fato.value.trim() || parts.some(p => !p.ta.value.trim()); };
+    fato.oninput = check; parts.forEach(p => p.ta.oninput = check);
+    save.onclick = async () => {
+      busy(save, true, "Guardando…");
+      const text = `Fato: ${fato.value.trim()}\n` + parts.map(p => `${p.label}: ${p.ta.value.trim()}`).join("\n");
+      await Store.add("diario", { category: "revisao", content: text });
+      screen("Estou duvidando", h("h1", {}, "Guardado"), h("div", { class: "card" }, text), h("p", { class: "lead" }, "Ficou no seu diário como revisão. Agora faça a ação que você escreveu."), h("button", { class: "btn", onclick: () => go("home") }, "Voltar ao início"));
     };
-    screen("Estou duvidando", h("h1", {}, "Estou duvidando"), h("p", {}, "O que aconteceu?"), ta, btn, out);
+    const ai = aiOn() && aiButton("Pedir para o Claude separar", async () => {
+      if (!fato.value.trim()) { err.textContent = "Escreva o fato primeiro."; return; }
+      busy(ai[0], true, "Separando…"); err.textContent = "";
+      try {
+        const r = await askJSON(`Modo Crise: a pessoa relatou um fato que a fez duvidar. Separe de forma estruturada, usando o contexto dela. Sem positividade tóxica. "respostaIdentidadeAssumida" termina com uma ação concreta possível hoje.
+Responda só com JSON: {"interpretacao":"...","medo":"...","padraoAntigo":"...","respostaIdentidadeAssumida":"..."}`, { ...(await context()), fato: fato.value.trim() });
+        parts.forEach(p => { if (r[p.k]) p.ta.value = String(r[p.k]); }); check();
+      } catch (e) { err.textContent = aiError(e); }
+      busy(ai[0], false, "Pedir para o Claude separar");
+    });
+    screen("Estou duvidando", h("h1", {}, "Estou duvidando"),
+      h("p", { class: "lead" }, "Separe o que aconteceu do que você está contando a si mesma sobre isso."),
+      h("div", { class: "field" }, h("span", { class: "label" }, "Fato"), fato), parts.map(p => p.el),
+      h("details", {}, h("summary", { class: "note", style: "text-align:left;cursor:pointer" }, "Ver meu DNA assumido"), h("div", { class: "card", style: "margin-top:10px" }, profile.dna.assumido)),
+      err, save, ai || null);
   },
 
   async privacy() {
@@ -473,11 +613,17 @@ Responda só com JSON: {"interpretacao":"...","medo":"...","padraoAntigo":"...",
       b.onclick = async () => { if (!armed) { armed = true; b.textContent = warn; return; } b.disabled = true; await action(); };
       return b;
     };
+    const cb = h("input", { type: "checkbox", id: "ai-on" }); cb.checked = !!profile.aiOn; cb.disabled = !sample;
+    cb.onchange = async () => { profile.aiOn = cb.checked; await Store.saveProfile(profile); };
     screen("Privacidade",
-      h("h1", {}, "Seu DNA e seus dados"),
+      h("h1", {}, "Seu DNA, IA e dados"),
       h("button", { class: "ghost", onclick: () => go("dna") }, "Rever meu DNA atual e assumido"),
+      h("span", { class: "label" }, "IA do Claude"),
+      h("label", { class: "switch", for: "ai-on" },
+        h("span", {}, h("b", { style: "font-weight:500" }, "Usar a IA do Claude"), h("small", { class: "lead" }, sample ? "Desligada, o app não gasta nada do seu limite. Ligada, cenas, respostas do eu assumido e desafios passam a ser escritos pelo Claude e cada um gasta seu limite." : "Disponível só quando você abre o app pelo Claude.")), cb),
+      h("span", { class: "label" }, "Seus dados"),
       h("p", { class: "lead" }, Store.mode === "db" ? "Seus registros ficam numa área privada da sua conta Claude. Ninguém mais vê, nem quem você compartilhar o link." : "Neste modo, seus registros ficam só neste navegador."),
-      h("span", { class: "label" }, "Seus dados"), exp, err,
+      exp, err,
       h("span", { class: "label" }, "Zona de risco"),
       confirmBtn("Apagar minha realidade", "Toque de novo para apagar a realidade e as cenas", async () => { await Store.clear("cenas"); delete profile.reality; await Store.saveProfile(profile); go("reality-select"); }),
       confirmBtn("Apagar tudo e recomeçar", "Toque de novo para apagar tudo, sem volta", async () => { await Store.deleteAll(); profile = null; go("onboarding"); }),
@@ -485,35 +631,64 @@ Responda só com JSON: {"interpretacao":"...","medo":"...","padraoAntigo":"...",
   },
 };
 
+function dnaAtual(a) {
+  return Object.keys(QLABEL).filter(k => a[k]).map(k => `${QLABEL[k]}: ${a[k]}`).join("\n");
+}
+
 async function evidenceList() {
-  const [des, dia] = await Promise.all([Store.list("desafios", 100), Store.list("diario", 200)]);
+  const [des, dia, cen] = await Promise.all([Store.list("desafios", 100), Store.list("diario", 200), Store.list("cenas", 200)]);
   return [
     ...des.filter(d => d.status === "done").map(d => ({ origin: "Desafio", text: d.description, note: d.reflection, date: d.closedAt || d.createdAt })),
     ...dia.filter(d => d.category === "evidencia").map(d => ({ origin: "Diário", text: d.content, date: d.createdAt })),
+    ...cen.filter(c => c.chosen === "a" && c.resposta).map(c => ({ origin: "Modo realidade", text: c.chosenLabel, note: c.resposta, date: c.createdAt })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 }
 
+/* Cena do banco: segue a ordem, sem repetir até acabar as da área. */
+function bankScene(cenas) {
+  const bank = SCENES[profile.reality.area] || SCENES.profissional;
+  const used = new Set(cenas.map(c => c.narrative));
+  const pick = bank.find(s => !used.has(s[0])) || bank[cenas.length % bank.length];
+  return { narrative: pick[0], options: pick[1].map((label, i) => ({ id: "abc"[i], label })), recap: false, source: "banco" };
+}
+
 async function genScene(ctx, lastChoice) {
-  const s = await askJSON(`Você é o motor narrativo do "Modo Realidade". Gere a PRÓXIMA cena curta (3 a 5 frases, segunda pessoa, presente) da vida simulada da pessoa dentro da realidade escolhida, com uma situação concreta que pede decisão${lastChoice ? ", reagindo à última escolha dela" : ""}. Ofereça 3 opções de ação: uma coerente com a identidade assumida, uma intermediária de observação e uma do jeito antigo. Opções curtas e específicas da cena, não genéricas.
+  const s = await askJSON(`Você é o motor narrativo do "Modo Realidade". Gere a PRÓXIMA cena curta (3 a 5 frases, segunda pessoa, presente) da vida simulada da pessoa dentro da realidade escolhida, com uma situação concreta que pede decisão${lastChoice ? ", reagindo à última escolha dela" : ""}. Ofereça 3 opções de ação nesta ordem: a primeira coerente com a identidade assumida, a segunda intermediária de observação e a terceira do jeito antigo. Opções curtas e específicas da cena.
 Responda só com JSON: {"narrative":"...","options":[{"id":"a","label":"..."},{"id":"b","label":"..."},{"id":"c","label":"..."}]}`, { ...ctx, ultimaEscolha: lastChoice || null });
   if (!s || !s.narrative || !Array.isArray(s.options) || !s.options.length) throw { code: "invalid_json" };
-  return { narrative: s.narrative, options: s.options.slice(0, 3).map((o, i) => ({ id: String(o.id || "abc"[i]), label: String(o.label) })), recap: false };
+  return { narrative: String(s.narrative), options: s.options.slice(0, 3).map((o, i) => ({ id: "abc"[i], label: String(o.label) })), recap: false, source: "ia" };
 }
 
 function showScene(box, scene) {
   const err = h("p", { class: "err" });
-  const btns = scene.options.map(o => h("button", { class: "ghost", onclick: async () => {
-    btns.forEach(b => b.disabled = true); err.textContent = "";
-    const thinking = h("p", { class: "thinking" }, "A cena continua…"); box.append(thinking);
-    try {
-      await Store.update("cenas", scene.id, { chosen: o.id, chosenLabel: o.label });
-      const ctx = await context();
-      const next = await genScene(ctx, scene.recap ? null : o.label);
-      showScene(box, await Store.add("cenas", { ...next, chosen: null }));
-    } catch (e) { thinking.remove(); err.textContent = aiError(e); btns.forEach(b => b.disabled = false); }
-  } }, o.label));
-  box.replaceChildren(...[scene.recap && h("span", { class: "label" }, "Enquanto você esteve fora"), h("div", { class: "card" }, scene.narrative), h("div", { class: "stack" }, btns), err,
-    h("p", { class: "note" }, "Isto é uma simulação da realidade que você escolheu, não uma previsão.")].filter(Boolean));
+  const terca = profile.reality.terca;
+  const btns = scene.options.map(o => h("button", { class: "ghost", onclick: () => choose(o) }, o.label));
+  async function choose(o) {
+    btns.forEach(b => { b.disabled = true; b.classList.toggle("sel", b.textContent === o.label); });
+    err.textContent = "";
+    if (scene.recap) { await Store.update("cenas", scene.id, { chosen: o.id, chosenLabel: o.label }); return go("reality"); }
+    const ta = h("textarea", { id: "cena-resposta", placeholder: "Na sua vida real, o que exatamente você faria? (opcional)", style: "min-height:90px" });
+    const nextLabel = aiOn() ? "Continuar a cena" : "Registrar e ver a próxima";
+    const next = h("button", { class: "btn" }, nextLabel);
+    next.onclick = async () => {
+      busy(next, true, aiOn() ? "A cena continua…" : "Registrando…");
+      try {
+        await Store.update("cenas", scene.id, { chosen: o.id, chosenLabel: o.label, resposta: ta.value.trim() || null });
+        if (!aiOn()) return go("reality");
+        const nextScene = await genScene(await context(), o.label);
+        showScene(box, await Store.add("cenas", { ...nextScene, chosen: null }));
+      } catch (e) { err.textContent = aiError(e); busy(next, false, nextLabel); }
+    };
+    box.append(ta, next, h("button", { class: "link", onclick: async () => { await Store.update("cenas", scene.id, { chosen: o.id, chosenLabel: o.label, resposta: ta.value.trim() || null }); go("home"); } }, "Registrar e voltar ao início"));
+    ta.focus();
+  }
+  box.replaceChildren(...[
+    scene.recap && h("span", { class: "label" }, "Enquanto você esteve fora"),
+    !scene.recap && terca && h("details", {}, h("summary", { class: "note", style: "text-align:left;cursor:pointer" }, "Lembrar minha terça-feira ideal"), h("div", { class: "card", style: "margin-top:10px" }, terca)),
+    h("div", { class: "card" }, scene.narrative),
+    h("div", { class: "stack" }, btns), err,
+    h("p", { class: "note" }, "Isto é uma simulação da realidade que você escolheu, não uma previsão."),
+  ].filter(Boolean));
 }
 
 async function render(name, opts) {
@@ -526,10 +701,6 @@ async function render(name, opts) {
   const [, s] = await Promise.all([Store.init(), use("sample")]);
   sample = s;
   try { profile = await Store.getProfile(); } catch { profile = null; }
-  if (!sample) {
-    screen(null, h("h1", {}, "JÁ É"), h("p", { class: "lead" }, "Este app usa o Claude para gerar sua leitura, suas cenas e as respostas do eu assumido. Abra o link pelo app do Claude ou pelo claude.ai, com sua conta, para usar."));
-    if (!profile || !profile.reality) return;
-  }
   if (!profile || !profile.dna) return go("onboarding");
   if (!profile.reality) return go("reality-select");
   go("home");
