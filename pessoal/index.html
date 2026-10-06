@@ -1,0 +1,538 @@
+<title>JÁ É</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Inter+Tight:wght@400;500;600&display=swap">
+<style>
+/* Layout: uma coluna estreita como tela de celular; cada área do app é uma "tela" trocada no lugar, com voltar no topo. Visual único e escuro, igual ao app mobile (mobile/src/theme). */
+:root{
+  --bg:#0B0B0D; --surface:#141417; --raised:#1C1C20; --border:#2A2A2E;
+  --fg:#F4F1EA; --fg2:#A9A6A0; --muted:#6E6B66; --accent:#C9A227; --accent-ink:#0B0B0D; --danger:#B9543F;
+  --display:"Fraunces",Georgia,"Times New Roman",serif;
+  --body:"Inter Tight",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.app{max-width:520px;margin:0 auto;padding-inline:20px;padding-block:20px 48px;min-height:100vh;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;min-height:44px;margin-bottom:12px}
+.back{background:none;border:0;color:var(--fg);font:inherit;font-size:22px;padding:6px 10px 6px 0;cursor:pointer;line-height:1}
+.top .ttl{font-size:15px;color:var(--fg2)}
+.screen{display:flex;flex-direction:column;gap:20px;flex:1}
+h1{font-family:var(--display);font-weight:300;font-size:32px;line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:400;font-size:21px;line-height:1.2;margin:0}
+p{margin:0}
+.lead{color:var(--fg2)}
+.label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;white-space:pre-wrap;overflow-wrap:anywhere}
+.stack{display:flex;flex-direction:column;gap:10px}
+textarea{width:100%;min-height:120px;resize:vertical;background:var(--surface);border:1px solid var(--border);border-radius:14px;color:var(--fg);font:inherit;padding:14px 16px;line-height:1.5}
+textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+textarea::placeholder{color:var(--muted)}
+.btn{appearance:none;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:600;font-size:16px;padding:16px 24px;cursor:pointer;width:100%}
+.btn[disabled]{opacity:.38;cursor:default}
+.ghost{appearance:none;background:none;border:1px solid var(--border);border-radius:14px;color:var(--fg2);font:inherit;padding:14px 16px;cursor:pointer;text-align:left;width:100%}
+.ghost:hover{border-color:var(--muted);color:var(--fg)}
+.ghost.sel{border-color:var(--accent);color:var(--fg)}
+.link{appearance:none;background:none;border:0;color:var(--fg2);font:inherit;padding:10px;cursor:pointer;text-align:center;width:100%}
+.danger{border-color:color-mix(in srgb,var(--danger) 70%,transparent);color:var(--fg2);text-align:center}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{appearance:none;background:none;border:1px solid var(--border);border-radius:999px;color:var(--fg);font:inherit;font-size:15px;padding:8px 14px;cursor:pointer}
+.chip.sel{border-color:var(--accent)}
+.home-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding-block:40px}
+.home-hero h1{font-size:44px;letter-spacing:.04em}
+.home-hero .btn{width:auto;padding-inline:56px;margin-top:22px}
+.status{color:var(--muted);font-size:14px;text-align:center}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.menu .ghost{text-align:center}
+.menu .wide{grid-column:1/-1}
+.thinking{color:var(--fg2);font-style:italic}
+.err{color:#E09A88;font-size:15px}
+.note{font-size:13px;color:var(--muted);text-align:center}
+.bubble{max-width:88%;padding:12px 16px;border-radius:18px;white-space:pre-wrap;overflow-wrap:anywhere}
+.me{align-self:flex-end;background:var(--raised);border-bottom-right-radius:6px}
+.them{align-self:flex-start;border:1px solid var(--border);border-bottom-left-radius:6px}
+.entry{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:4px}
+.entry .meta{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.progress{height:2px;background:var(--border);border-radius:2px;overflow:hidden}
+.progress>i{display:block;height:100%;background:var(--accent)}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+@media (prefers-reduced-motion:no-preference){.screen{animation:in .25s ease-out}@keyframes in{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}}
+</style>
+
+<div class="app">
+  <div class="top" id="top" hidden><button class="back" id="back" aria-label="Voltar">←</button><span class="ttl" id="topTitle"></span></div>
+  <main id="view" class="screen"><p class="thinking">Abrindo…</p></main>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- Regras de IA (mesmas do backend: backend/src/ai/guardrails.ts) ---------- */
+const GUARDRAILS = `Você é o motor de IA do aplicativo "JÁ É". Regras fixas, válidas em qualquer módulo:
+1. Nunca afirme que pensamentos ou imaginação controlam diretamente eventos externos reais, nem prometa que o universo "vai entregar" algo. Trate o desejo como direção, não garantia.
+2. Sempre distinga explicitamente FATO (o que aconteceu) de INTERPRETAÇÃO (o significado atribuído) quando ambos estiverem presentes.
+3. Nunca fale como se conhecesse o futuro real do usuário ou tivesse poderes sobrenaturais. Ao representar o "Eu Assumido", deixe claro (ao menos pelo tom) que é uma representação da identidade que o usuário está construindo, não uma entidade profética.
+4. Nunca apresente padrões de comportamento como diagnóstico clínico. Use linguagem como "padrão que você relatou", nunca "você tem [condição]".
+5. Nunca incentive dependência: não use culpa por ausência, não implique que "parar de acreditar" causa perda de resultados e, quando fizer sentido, direcione de volta para uma ação real no mundo.
+6. Seja específico e pessoal, usando os detalhes fornecidos no contexto, nunca genérico.
+7. Escreva em português do Brasil, natural, sem copiar as frases do usuário entre aspas.`;
+
+const QUESTIONS = [
+  ["rotina","Como é sua rotina, no dia a dia?","Conte como costuma ser um dia comum..."],
+  ["trabalho","Como você trabalha hoje?","O que você faz, como se sente com isso..."],
+  ["financas","Como está sua situação financeira?",""],
+  ["relacionamentos","Como estão seus relacionamentos?",""],
+  ["autoimagem","Como você se enxerga hoje?",""],
+  ["desejaMudar","O que mais deseja mudar?",""],
+  ["medos","O que mais teme?",""],
+  ["crencasDinheiro","O que você acredita sobre dinheiro?",""],
+  ["crencasAmor","O que você acredita sobre amor?",""],
+  ["crencasSucesso","O que você acredita sobre sucesso?",""],
+  ["reacaoAoErro","Como você reage quando algo dá errado?",""],
+  ["padroesRepetidos","Quais padrões você sente que se repetem na sua vida?",""],
+  ["tercaFeiraIdeal","Se sua vida estivesse exatamente como você deseja, como seria uma terça-feira comum?","Onde você acorda, quem está ao seu lado, como passa o dia, como se sente..."],
+];
+const AREAS = [["financeira","Financeira"],["amorosa","Amorosa"],["profissional","Profissional"],["fisica","Física"],["familiar","Familiar"]];
+const CATS = [["acontecimento","Acontecimento"],["desejo","Desejo"],["emocao","Emoção"],["crenca","Crença"],["acao","Ação"],["evidencia","Evidência"],["revisao","Revisão"]];
+const RECAP_HOURS = 4;
+
+/* ---------- Capacidades do Claude (db + sample), com alternativa local ---------- */
+const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name).catch(() => null) : Promise.resolve(null);
+let sample = null;
+
+const Store = {
+  mode: "local", base: null,
+  async init() {
+    const [db, user] = await Promise.all([use("db"), use("user")]);
+    const uid = user ? await user.id().catch(() => null) : null;
+    if (db && uid) {
+      this.mode = "db";
+      this.base = db.doc("data/users/" + uid + "/perfil");
+    }
+  },
+  lsGet(k, d) { try { const v = localStorage.getItem("jae:" + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  lsSet(k, v) { try { localStorage.setItem("jae:" + k, JSON.stringify(v)); } catch {} },
+  async getProfile() {
+    if (this.mode === "db") { const s = await this.base.get(); return s.exists ? s.data() : null; }
+    return this.lsGet("perfil", null);
+  },
+  async saveProfile(p) {
+    if (this.mode === "db") return this.base.set(p);
+    this.lsSet("perfil", p);
+  },
+  async add(col, data) {
+    const row = { ...data, createdAt: new Date().toISOString() };
+    if (this.mode === "db") { const ref = await this.base.collection(col).add(row); return { id: ref.id, ...row }; }
+    const list = this.lsGet(col, []); const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    list.push({ id, ...row }); this.lsSet(col, list); return { id, ...row };
+  },
+  async list(col, n = 200) {
+    if (this.mode === "db") {
+      const s = await this.base.collection(col).orderBy("createdAt", "desc").limit(n).get();
+      return s.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    return this.lsGet(col, []).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, n);
+  },
+  async update(col, id, patch) {
+    if (this.mode === "db") return this.base.collection(col).doc(id).update(patch);
+    this.lsSet(col, this.lsGet(col, []).map(r => r.id === id ? { ...r, ...patch } : r));
+  },
+  async clear(col) {
+    if (this.mode === "db") { const s = await this.base.collection(col).get(); for (const d of s.docs) await this.base.collection(col).doc(d.id).delete(); return; }
+    this.lsSet(col, []);
+  },
+  async deleteAll() {
+    for (const c of ["cenas","diario","desafios","conversa"]) await this.clear(c);
+    if (this.mode === "db") await this.base.delete(); else { try { localStorage.removeItem("jae:perfil"); } catch {} }
+  },
+};
+
+function aiError(e) {
+  const c = e && e.code;
+  if (c === "not_granted") return "Você não liberou o uso do Claude nesta página. Recarregue a página e toque em permitir.";
+  if (c === "rate_limited") return "Muitos pedidos seguidos. Espere um minuto e tente de novo.";
+  if (c === "invalid_json") return "A resposta veio num formato inesperado. Tente de novo.";
+  if (c === "cancelled") return "";
+  return "Não consegui gerar agora. Tente de novo.";
+}
+async function askJSON(task, data) {
+  if (!sample) throw { code: "unavailable" };
+  return sample.json(GUARDRAILS + "\n\n" + task + "\n\nDados:\n" + JSON.stringify(data, null, 1));
+}
+async function askText(task, data, onText) {
+  if (!sample) throw { code: "unavailable" };
+  const r = await sample(GUARDRAILS + "\n\n" + task + "\n\nDados:\n" + JSON.stringify(data, null, 1), { onText, cache: false });
+  return r.text.trim();
+}
+
+/* ---------- Estado ---------- */
+let profile = null;
+const go = (screen, opts) => render(screen, opts);
+
+async function context() {
+  const cenas = await Store.list("cenas", 3);
+  return {
+    area: profile.reality.area,
+    dna: profile.dna,
+    mundo: profile.reality.world,
+    narrativaRecente: cenas.map(c => c.narrative).reverse(),
+    padroes: (profile.patterns || []).slice(-5),
+  };
+}
+
+/* ---------- Ajudantes de DOM ---------- */
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "text") el.textContent = v;
+    else if (v === true) el.setAttribute(k, "");
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(String(k)));
+  return el;
+}
+const view = document.getElementById("view");
+const top = document.getElementById("top");
+document.getElementById("back").onclick = () => go("home");
+function screen(title, ...kids) {
+  top.hidden = title === null;
+  document.getElementById("topTitle").textContent = title || "";
+  view.replaceChildren(...kids.flat().filter(Boolean));
+  view.classList.remove("screen"); void view.offsetWidth; view.classList.add("screen");
+  window.scrollTo(0, 0);
+}
+const fmtDate = (iso) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+function busy(btn, on, label) { btn.disabled = on; if (label) btn.textContent = label; }
+
+/* ---------- Telas ---------- */
+const screens = {
+
+  onboarding(state = { step: 0, answers: {} }) {
+    const [field, prompt, ph] = QUESTIONS[state.step];
+    const last = state.step === QUESTIONS.length - 1;
+    const ta = h("textarea", { id: "q-" + field, placeholder: ph || "Escreva com suas palavras..." });
+    ta.value = state.answers[field] || "";
+    const err = h("p", { class: "err" });
+    const next = h("button", { class: "btn", disabled: !ta.value.trim() }, last ? "Concluir" : "Continuar");
+    ta.oninput = () => { next.disabled = !ta.value.trim(); };
+    next.onclick = async () => {
+      state.answers[field] = ta.value.trim();
+      if (!last) return go("onboarding", { step: state.step + 1, answers: state.answers });
+      busy(next, true, "Lendo suas respostas…"); err.textContent = "";
+      try {
+        const dna = await askJSON(`Construa o "DNA Atual" e o "DNA Assumido" a partir das respostas de onboarding.
+DNA Atual: os padrões que a pessoa relatou hoje (rotina, crenças, reação ao erro, medos), sem diagnóstico.
+DNA Assumido: como pensa, decide e age a versão dela que já vive a terça-feira ideal. Ela NÃO carrega as crenças limitantes relatadas; descreva as crenças e atitudes que substituem essas.
+Cada campo com 3 a 5 frases, segunda pessoa ("você"), concreto e pessoal.
+Responda só com JSON: {"atual": "...", "assumido": "..."}`, state.answers);
+        if (!dna || !dna.atual || !dna.assumido) throw { code: "invalid_json" };
+        profile = { answers: state.answers, dna, patterns: [], createdAt: new Date().toISOString() };
+        await Store.saveProfile(profile);
+        go("dna");
+      } catch (e) { err.textContent = aiError(e); busy(next, false, "Concluir"); }
+    };
+    screen(null,
+      h("div", { class: "stack" }, h("span", { class: "label" }, `${state.step + 1} de ${QUESTIONS.length}`),
+        h("div", { class: "progress" }, h("i", { style: `width:${((state.step + 1) / QUESTIONS.length) * 100}%` }))),
+      h("h2", {}, prompt), ta, err, next,
+      state.step > 0 && h("button", { class: "link", onclick: () => { state.answers[field] = ta.value; go("onboarding", { step: state.step - 1, answers: state.answers }); } }, "Voltar"),
+      state.step === 0 && h("p", { class: "note" }, "13 perguntas. Suas respostas ficam guardadas só pra você e servem para o Claude montar sua leitura."),
+    );
+    ta.focus();
+  },
+
+  dna() {
+    screen(null,
+      h("h1", {}, "Padrões que você relatou"),
+      h("p", { class: "lead" }, "Isto não é um diagnóstico. É uma leitura do que você contou, para você reconhecer e trabalhar a partir dela."),
+      h("span", { class: "label" }, "DNA atual"), h("div", { class: "card" }, profile.dna.atual),
+      h("span", { class: "label" }, "DNA assumido"), h("div", { class: "card" }, profile.dna.assumido),
+      h("button", { class: "btn", onclick: () => go(profile.reality ? "home" : "reality-select") }, profile.reality ? "Voltar" : "Escolher minha realidade"),
+    );
+  },
+
+  "reality-select"() {
+    let area = null;
+    const ta = h("textarea", { id: "terca", placeholder: "Onde você acorda, o que faz, como se sente..." });
+    ta.value = profile.answers.tercaFeiraIdeal || "";
+    const extra = h("div", { class: "stack", hidden: true }, h("span", { class: "label" }, "Já vivendo essa mudança"), h("p", {}, "Como seria uma terça-feira comum, já dentro dessa realidade?"), ta);
+    const err = h("p", { class: "err" });
+    const go1 = h("button", { class: "btn", disabled: true }, "Entrar nesta realidade");
+    const check = () => { go1.disabled = !area || !ta.value.trim(); };
+    ta.oninput = check;
+    const opts = AREAS.map(([id, label]) => h("button", { class: "ghost", onclick: (ev) => {
+      area = id; opts.forEach(o => o.classList.remove("sel")); ev.currentTarget.classList.add("sel"); extra.hidden = false; check();
+    } }, label));
+    go1.onclick = async () => {
+      busy(go1, true, "Construindo sua realidade…"); err.textContent = "";
+      try {
+        const world = await askJSON(`Construa o "mundo" de uma realidade simulada a partir da área de vida escolhida e da terça-feira ideal da pessoa. Cada campo com 1 a 2 frases concretas.
+Responda só com JSON: {"resumo":"...","ambiente":"...","rotina":"...","profissao":"...","relacoes":"...","lazer":"..."}`, { area, tercaFeiraIdeal: ta.value.trim(), dna: profile.dna });
+        profile.reality = { area, terca: ta.value.trim(), world, createdAt: new Date().toISOString() };
+        await Store.saveProfile(profile);
+        go("home");
+      } catch (e) { err.textContent = aiError(e); busy(go1, false, "Entrar nesta realidade"); }
+    };
+    screen(null,
+      h("h1", {}, "Uma realidade por vez"),
+      h("p", { class: "lead" }, "Se apenas uma área da sua vida mudasse primeiro, qual mudança teria maior impacto sobre todas as outras?"),
+      h("div", { class: "stack" }, opts), extra, err, go1);
+  },
+
+  async home() {
+    const areaLabel = (AREAS.find(a => a[0] === profile.reality.area) || [, profile.reality.area])[1];
+    const days = Math.max(1, Math.ceil((Date.now() - new Date(profile.reality.createdAt).getTime()) / 86400000));
+    const status = h("p", { class: "status" }, `Dia ${days} na sua realidade ${areaLabel.toLowerCase()}`);
+    screen(null,
+      h("div", { class: "home-hero" },
+        h("h1", {}, "JÁ É"),
+        h("p", { class: "lead" }, "Sua vida está acontecendo."),
+        h("button", { class: "btn", onclick: () => go("reality") }, "ENTRAR"),
+        status),
+      h("div", { class: "menu" },
+        h("button", { class: "ghost", onclick: () => go("assumed") }, "Eu assumido"),
+        h("button", { class: "ghost", onclick: () => go("journal") }, "Diário"),
+        h("button", { class: "ghost", onclick: () => go("challenge") }, "Desafio da semana"),
+        h("button", { class: "ghost", onclick: () => go("evidence") }, "Evidências"),
+        h("button", { class: "ghost wide", onclick: () => go("crisis") }, "Estou duvidando"),
+        h("button", { class: "link wide", onclick: () => go("privacy") }, "Meu DNA e privacidade")),
+      Store.mode === "local" && h("p", { class: "note" }, "Abra este app pelo Claude para seus dados ficarem salvos na sua conta. Aqui eles ficam só neste navegador."),
+    );
+    try {
+      const [des, evs] = await Promise.all([Store.list("desafios", 50), evidenceList()]);
+      const pend = des.find(d => d.status === "pending");
+      status.textContent += ` · ${evs.length} ${evs.length === 1 ? "evidência" : "evidências"}` + (pend ? " · desafio em aberto" : "");
+    } catch {}
+  },
+
+  async reality() {
+    const box = h("div", { class: "stack" }, h("p", { class: "thinking" }, "Entrando na sua realidade…"));
+    screen("Sua realidade", box);
+    const cenas = await Store.list("cenas", 1);
+    const last = cenas[0];
+    if (last && !last.chosen) return showScene(box, last);
+    try {
+      const ctx = await context();
+      let scene;
+      if (last && (Date.now() - new Date(last.createdAt).getTime()) / 3600000 >= RECAP_HOURS) {
+        const hours = Math.round((Date.now() - new Date(last.createdAt).getTime()) / 3600000);
+        const text = await askText(`Gere 2 a 3 frases descrevendo o que aconteceu na realidade simulada da pessoa enquanto ela esteve fora (${hours} horas), como continuação coerente do mundo dela. Deixe claro que é continuação da simulação, não previsão da vida real. Responda em texto simples, sem título.`, ctx);
+        scene = { narrative: text, options: [{ id: "continue", label: "Continuar" }], recap: true };
+      } else {
+        scene = await genScene(ctx);
+      }
+      const saved = await Store.add("cenas", { ...scene, chosen: null });
+      showScene(box, saved);
+    } catch (e) { box.replaceChildren(h("p", { class: "err" }, aiError(e)), h("button", { class: "btn", onclick: () => go("reality") }, "Tentar de novo")); }
+  },
+
+  async assumed() {
+    const log = h("div", { class: "stack" });
+    const ta = h("textarea", { id: "eu-msg", placeholder: "Escreva algo...", style: "min-height:90px" });
+    const send = h("button", { class: "btn", disabled: true }, "Enviar");
+    const err = h("p", { class: "err" });
+    ta.oninput = () => { send.disabled = !ta.value.trim(); };
+    screen("Eu assumido",
+      h("p", { class: "label" }, "Representação da identidade que você está construindo"),
+      log, ta, err, send);
+    const msgs = (await Store.list("conversa", 40)).reverse();
+    const bubble = (role, text) => h("div", { class: "bubble " + (role === "user" ? "me" : "them") }, text);
+    if (!msgs.length) log.append(h("p", { class: "lead" }, "Conte o que está acontecendo, uma dúvida ou uma decisão. Quem responde é a versão de você que já vive a sua realidade."));
+    msgs.forEach(m => log.append(bubble(m.role, m.content)));
+    send.onclick = async () => {
+      const text = ta.value.trim(); if (!text) return;
+      if (!msgs.length) log.replaceChildren();
+      log.append(bubble("user", text)); ta.value = ""; busy(send, true, "Respondendo…"); err.textContent = "";
+      const out = bubble("assistant", "…"); out.classList.add("thinking"); log.append(out);
+      try {
+        const ctx = await context();
+        const rules = GUARDRAILS + `\n\nVocê é o "Eu Assumido": a representação da identidade que a pessoa está construindo. Responda em 2 a 4 frases, em primeira pessoa, com calor e firmeza, sem positividade tóxica, levando de volta para uma ação real quando fizer sentido. Nunca alegue conhecer o futuro real dela.\n\nContexto da pessoa:\n` + JSON.stringify(ctx);
+        const turns = msgs.slice(-16).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+        const r = await sample([{ role: "user", content: rules }, ...turns, { role: "user", content: text }],
+          { cache: false, onText: ({ text: t }) => { out.classList.remove("thinking"); out.textContent = t; } });
+        out.textContent = r.text.trim();
+        msgs.push(await Store.add("conversa", { role: "user", content: text }));
+        msgs.push(await Store.add("conversa", { role: "assistant", content: r.text.trim() }));
+      } catch (e) { out.remove(); ta.value = text; err.textContent = aiError(e); }
+      busy(send, !ta.value.trim(), "Enviar");
+    };
+  },
+
+  async journal() {
+    let cat = "acontecimento";
+    const ta = h("textarea", { id: "diario-txt", placeholder: "Hoje aconteceu..." });
+    const save = h("button", { class: "btn", disabled: true }, "Registrar");
+    const list = h("div", { class: "stack" });
+    const pats = h("div", { class: "stack" });
+    const err = h("p", { class: "err" });
+    ta.oninput = () => { save.disabled = !ta.value.trim(); };
+    const chips = CATS.map(([id, label]) => h("button", { class: "chip" + (id === cat ? " sel" : ""), onclick: (ev) => { cat = id; chips.forEach(c => c.classList.remove("sel")); ev.currentTarget.classList.add("sel"); } }, label));
+    const draw = async () => {
+      const rows = await Store.list("diario", 100);
+      list.replaceChildren(...(rows.length ? rows.map(r => h("div", { class: "entry" }, h("span", { class: "meta" }, `${(CATS.find(c => c[0] === r.category) || [, r.category])[1]} · ${fmtDate(r.createdAt)}`), h("p", {}, r.content))) : [h("p", { class: "lead" }, "Nenhum registro ainda.")]));
+      const p = profile.patterns || [];
+      pats.replaceChildren(...(p.length ? [h("span", { class: "label" }, "Padrões que apareceram"), ...p.slice(-3).map(t => h("div", { class: "card" }, t))] : []));
+      return rows;
+    };
+    save.onclick = async () => {
+      busy(save, true, "Registrando…"); err.textContent = "";
+      try {
+        await Store.add("diario", { category: cat, content: ta.value.trim() });
+        ta.value = "";
+        const rows = await draw();
+        if (rows.length % 3 === 0 && sample) {
+          try {
+            const r = await askJSON(`Analise estes registros de diário e aponte até 3 padrões de linguagem ou comportamento recorrentes, citando trechos curtos como evidência. Nunca use linguagem de diagnóstico.
+Responda só com JSON: {"patterns": ["...", "..."]}`, rows.slice(0, 5).map(r => r.content).reverse());
+            if (Array.isArray(r.patterns) && r.patterns.length) { profile.patterns = [...(profile.patterns || []), ...r.patterns].slice(-10); await Store.saveProfile(profile); await draw(); }
+          } catch {}
+        }
+      } catch (e) { err.textContent = "Não consegui salvar. Tente de novo."; }
+      busy(save, !ta.value.trim(), "Registrar");
+    };
+    screen("Diário", h("span", { class: "label" }, "Categoria"), h("div", { class: "chips" }, chips), ta, err, save, pats, h("span", { class: "label" }, "Registros"), list);
+    await draw();
+  },
+
+  async challenge() {
+    const box = h("div", { class: "stack" });
+    const hist = h("div", { class: "stack" });
+    screen("Desafio da semana", h("h1", {}, "Desafio de identidade"), box, h("span", { class: "label" }, "Histórico"), hist);
+    const rows = await Store.list("desafios", 50);
+    const pend = rows.find(r => r.status === "pending");
+    const closed = rows.filter(r => r.status !== "pending");
+    hist.replaceChildren(...(closed.length ? closed.map(r => h("div", { class: "entry" }, h("span", { class: "meta" }, `${r.status === "done" ? "Feito" : "Não feito"} · ${fmtDate(r.createdAt)}`), h("p", {}, r.description), r.reflection && h("p", { class: "lead" }, r.reflection))) : [h("p", { class: "lead" }, "Nada ainda.")]));
+    if (pend) {
+      const ta = h("textarea", { id: "desafio-ref", placeholder: "O que você fez, o que percebeu..." });
+      const close = async (done) => { await Store.update("desafios", pend.id, { status: done ? "done" : "skipped", reflection: ta.value.trim() || null, closedAt: new Date().toISOString() }); go("challenge"); };
+      box.replaceChildren(h("div", { class: "card" }, pend.description), h("span", { class: "label" }, "Como foi"), ta,
+        h("button", { class: "btn", onclick: () => close(true) }, "Marquei como feito"),
+        h("button", { class: "link", onclick: () => close(false) }, "Não fiz"));
+    } else {
+      const err = h("p", { class: "err" });
+      const gen = h("button", { class: "btn" }, "Gerar desafio desta semana");
+      gen.onclick = async () => {
+        busy(gen, true, "Pensando no desafio…"); err.textContent = "";
+        try {
+          const ctx = await context();
+          const d = await askText(`Gere um Desafio de Identidade semanal: uma ação pequena, concreta e realizável em menos de 20 minutos, que a identidade assumida da pessoa faria na área escolhida, usando detalhes reais do contexto. Responda em uma ou duas frases, texto simples, sem título.`, { ...ctx, desafiosAnteriores: rows.slice(0, 5).map(r => r.description) });
+          await Store.add("desafios", { description: d, status: "pending" });
+          go("challenge");
+        } catch (e) { err.textContent = aiError(e); busy(gen, false, "Gerar desafio desta semana"); }
+      };
+      box.replaceChildren(h("p", { class: "lead" }, "Uma ação pequena por semana, feita no mundo real. Quando você conclui, ela vira evidência."), err, gen);
+    }
+  },
+
+  async evidence() {
+    const list = h("div", { class: "stack" }, h("p", { class: "thinking" }, "Carregando…"));
+    screen("Evidências", h("h1", {}, "Banco de evidências"), h("p", { class: "lead" }, "O que mudou desde que você começou. Entram aqui os desafios concluídos e os registros do diário marcados como evidência."), list);
+    const evs = await evidenceList();
+    list.replaceChildren(...(evs.length ? evs.map(e => h("div", { class: "entry" }, h("span", { class: "meta" }, `${e.origin} · ${fmtDate(e.date)}`), h("p", {}, e.text), e.note && h("p", { class: "lead" }, e.note))) : [h("p", { class: "lead" }, "Ainda não há evidências registradas.")]));
+  },
+
+  crisis() {
+    const ta = h("textarea", { id: "crise-fato", placeholder: "Descreva o fato, sem interpretação..." });
+    const btn = h("button", { class: "btn", disabled: true }, "Separar");
+    const out = h("div", { class: "stack" });
+    ta.oninput = () => { btn.disabled = !ta.value.trim(); };
+    btn.onclick = async () => {
+      busy(btn, true, "Separando…"); out.replaceChildren();
+      try {
+        const ctx = await context();
+        const fato = ta.value.trim();
+        const r = await askJSON(`Modo Crise: a pessoa relatou um fato que a fez duvidar. Separe de forma estruturada, usando o contexto dela. Sem positividade tóxica. "medo" deve se ligar ao medo que ela relatou, com as palavras dela reinterpretadas, não copiadas. "respostaIdentidadeAssumida" termina com uma ação concreta possível hoje.
+Responda só com JSON: {"interpretacao":"...","medo":"...","padraoAntigo":"...","respostaIdentidadeAssumida":"..."}`, { ...ctx, fato });
+        const part = (label, text) => [h("span", { class: "label" }, label), h("div", { class: "card" }, String(text || ""))];
+        out.replaceChildren(...part("Fato", fato), ...part("Interpretação", r.interpretacao), ...part("Medo", r.medo), ...part("Padrão antigo", r.padraoAntigo), ...part("Resposta da identidade assumida", r.respostaIdentidadeAssumida));
+      } catch (e) { out.replaceChildren(h("p", { class: "err" }, aiError(e))); }
+      busy(btn, !ta.value.trim(), "Separar");
+    };
+    screen("Estou duvidando", h("h1", {}, "Estou duvidando"), h("p", {}, "O que aconteceu?"), ta, btn, out);
+  },
+
+  async privacy() {
+    const err = h("p", { class: "err" });
+    const exp = h("button", { class: "ghost", style: "text-align:center" }, "Exportar meus dados");
+    const dl = await use("downloads");
+    exp.hidden = !dl;
+    exp.onclick = async () => {
+      try {
+        const data = { perfil: profile };
+        for (const c of ["cenas","diario","desafios","conversa"]) data[c] = await Store.list(c, 1000);
+        await dl.save({ filename: "ja-e-meus-dados.json", data: JSON.stringify(data, null, 2) });
+      } catch (e) { if (e && e.code !== "cancelled" && e.code !== "declined") err.textContent = "Não consegui exportar agora."; }
+    };
+    const confirmBtn = (label, warn, action) => {
+      const b = h("button", { class: "ghost danger" }, label); let armed = false;
+      b.onclick = async () => { if (!armed) { armed = true; b.textContent = warn; return; } b.disabled = true; await action(); };
+      return b;
+    };
+    screen("Privacidade",
+      h("h1", {}, "Seu DNA e seus dados"),
+      h("button", { class: "ghost", onclick: () => go("dna") }, "Rever meu DNA atual e assumido"),
+      h("p", { class: "lead" }, Store.mode === "db" ? "Seus registros ficam numa área privada da sua conta Claude. Ninguém mais vê, nem quem você compartilhar o link." : "Neste modo, seus registros ficam só neste navegador."),
+      h("span", { class: "label" }, "Seus dados"), exp, err,
+      h("span", { class: "label" }, "Zona de risco"),
+      confirmBtn("Apagar minha realidade", "Toque de novo para apagar a realidade e as cenas", async () => { await Store.clear("cenas"); delete profile.reality; await Store.saveProfile(profile); go("reality-select"); }),
+      confirmBtn("Apagar tudo e recomeçar", "Toque de novo para apagar tudo, sem volta", async () => { await Store.deleteAll(); profile = null; go("onboarding"); }),
+    );
+  },
+};
+
+async function evidenceList() {
+  const [des, dia] = await Promise.all([Store.list("desafios", 100), Store.list("diario", 200)]);
+  return [
+    ...des.filter(d => d.status === "done").map(d => ({ origin: "Desafio", text: d.description, note: d.reflection, date: d.closedAt || d.createdAt })),
+    ...dia.filter(d => d.category === "evidencia").map(d => ({ origin: "Diário", text: d.content, date: d.createdAt })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+async function genScene(ctx, lastChoice) {
+  const s = await askJSON(`Você é o motor narrativo do "Modo Realidade". Gere a PRÓXIMA cena curta (3 a 5 frases, segunda pessoa, presente) da vida simulada da pessoa dentro da realidade escolhida, com uma situação concreta que pede decisão${lastChoice ? ", reagindo à última escolha dela" : ""}. Ofereça 3 opções de ação: uma coerente com a identidade assumida, uma intermediária de observação e uma do jeito antigo. Opções curtas e específicas da cena, não genéricas.
+Responda só com JSON: {"narrative":"...","options":[{"id":"a","label":"..."},{"id":"b","label":"..."},{"id":"c","label":"..."}]}`, { ...ctx, ultimaEscolha: lastChoice || null });
+  if (!s || !s.narrative || !Array.isArray(s.options) || !s.options.length) throw { code: "invalid_json" };
+  return { narrative: s.narrative, options: s.options.slice(0, 3).map((o, i) => ({ id: String(o.id || "abc"[i]), label: String(o.label) })), recap: false };
+}
+
+function showScene(box, scene) {
+  const err = h("p", { class: "err" });
+  const btns = scene.options.map(o => h("button", { class: "ghost", onclick: async () => {
+    btns.forEach(b => b.disabled = true); err.textContent = "";
+    const thinking = h("p", { class: "thinking" }, "A cena continua…"); box.append(thinking);
+    try {
+      await Store.update("cenas", scene.id, { chosen: o.id, chosenLabel: o.label });
+      const ctx = await context();
+      const next = await genScene(ctx, scene.recap ? null : o.label);
+      showScene(box, await Store.add("cenas", { ...next, chosen: null }));
+    } catch (e) { thinking.remove(); err.textContent = aiError(e); btns.forEach(b => b.disabled = false); }
+  } }, o.label));
+  box.replaceChildren(...[scene.recap && h("span", { class: "label" }, "Enquanto você esteve fora"), h("div", { class: "card" }, scene.narrative), h("div", { class: "stack" }, btns), err,
+    h("p", { class: "note" }, "Isto é uma simulação da realidade que você escolheu, não uma previsão.")].filter(Boolean));
+}
+
+async function render(name, opts) {
+  try { await screens[name](opts); }
+  catch (e) { console.error(e); screen("", h("p", { class: "err" }, "Algo deu errado ao abrir esta tela."), h("button", { class: "btn", onclick: () => go("home") }, "Voltar ao início")); }
+}
+
+/* ---------- Início ---------- */
+(async () => {
+  const [, s] = await Promise.all([Store.init(), use("sample")]);
+  sample = s;
+  try { profile = await Store.getProfile(); } catch { profile = null; }
+  if (!sample) {
+    screen(null, h("h1", {}, "JÁ É"), h("p", { class: "lead" }, "Este app usa o Claude para gerar sua leitura, suas cenas e as respostas do eu assumido. Abra o link pelo app do Claude ou pelo claude.ai, com sua conta, para usar."));
+    if (!profile || !profile.reality) return;
+  }
+  if (!profile || !profile.dna) return go("onboarding");
+  if (!profile.reality) return go("reality-select");
+  go("home");
+})();
+})();
+</script>
